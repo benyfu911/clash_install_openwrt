@@ -14,19 +14,14 @@ uci set network.clash0.ifname='utun'
 uci set network.clash0.proto='static'
 uci set network.clash0.ipaddr='198.18.0.1'
 uci set network.clash0.netmask='255.255.0.0'
+uci set network.clash0.ip4table=$TABLE
+uci set network.clash0.gateway='198.18.0.2'
 uci set network.clash0.auto='1'
 
 ## add route rule
 uci add network rule
 uci set network.@rule[-1].mark=$MARK
 uci set network.@rule[-1].lookup=$TABLE
-
-## add route table
-uci add network route
-uci set network.@route[-1].interface='clash0'
-uci set network.@route[-1].target='0.0.0.0'
-uci set network.@route[-1].netmask='0.0.0.0'
-uci set network.@route[-1].table=$TABLE
 
 ## commit changes
 uci commit network
