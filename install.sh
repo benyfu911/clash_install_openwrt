@@ -27,15 +27,21 @@ uci set network.@rule[-1].lookup=$TABLE
 uci commit network
 
 # 3. firewall
-## add firewall rules
-uci add firewall rule
-uci set firewall.@rule[-1].src='lan'
-uci set firewall.@rule[-1].name='CLASH'
-uci set firewall.@rule[-1].target='MARK'
-uci set firewall.@rule[-1].set_mark=$MARK
-uci set firewall.@rule[-1].proto='all'
-uci set firewall.@rule[-1].src_ip=$(uci get network.lan.ipaddr)/$(uci get network.lan.netmask)
-uci set firewall.@rule[-1].extra="! -d $(uci get network.lan.ipaddr)/$(uci get network.lan.netmask)"
+## add firewall include script
+uci add firewall include
+uci set firewall.@include[-1].path='/etc/clash/firewall.sh'
+
+## generate firewall rules
+LAN_NET=$(uci get network.lan.ipaddr)/$(uci get network.lan.netmask)
+mkdir -p /etc/clash
+cat << EOF >> /etc/clash/firewall.sh
+iptables -t mangle -N CLASH
+# Adding port forward rule here
+# eg:
+# iptables -t mangle -A CLASH -s <LAN_IP> -p <tcp/udp> --sport <LAN_PORT> -j RETURN
+iptables -t mangle -A CLASH -s $LAN_NET ! -d $LAN_NET -j MARK --set-mark $MARK
+iptables -t mangle -A PREROUTING -j CLASH
+EOF
 
 ## add clash zone
 uci add firewall zone
@@ -82,7 +88,6 @@ restart() {
 }
 EOF
 chmod +x /etc/init.d/clash
-mkdir -p /etc/clash
 
 # 6. final
 echo "Copying clash configuration file to /etc/clash"
