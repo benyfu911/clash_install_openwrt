@@ -32,14 +32,50 @@ uci add firewall include
 uci set firewall.@include[-1].path='/etc/clash/firewall.sh'
 
 ## generate firewall rules
-LAN_NET=$(uci get network.lan.ipaddr)/$(uci get network.lan.netmask)
 mkdir -p /etc/clash
 cat << EOF >> /etc/clash/firewall.sh
+#!/bin/sh
+. /lib/functions.sh
+
+handle_redirect()
+{
+  local config="\$1"
+  local src_port dest dest_ip dest_port proto target enabled
+
+  config_get target \$config target
+  config_get dest \$config dest
+  config_get enabled \$config enabled 1
+
+  if [ "\$target" != "DNAT" ] || [ "\$dest" != "lan" ] || [ "\$enabled" == 0 ]; then
+    return 1
+  fi
+
+  config_get dest_port "\$config" dest_port
+  if [ x"\$dest_port" == "x" ]; then
+    config_get dest_port \$config src_dport
+  fi
+
+  config_get proto \$config proto
+  config_get dest_ip \$config dest_ip
+
+  if [ x"\$dest_ip" == "x" ]; then
+    return 1
+  fi
+
+  if [ x"\$proto" == "x" ] || [ x"\$proto" == "xall" ]; then
+    iptables -t mangle -A CLASH -p tcp -s \$dest_ip \${dest_port:+--sport \$dest_port} -j RETURN
+    iptables -t mangle -A CLASH -p udp -s \$dest_ip \${dest_port:+--sport \$dest_port} -j RETURN
+  else
+    iptables -t mangle -A CLASH -p \$proto -s \$dest_ip \${dest_port:+--sport \$dest_port} -j RETURN
+  fi
+}
+
 iptables -t mangle -N CLASH
 # Adding port forward rule here
-# eg:
-# iptables -t mangle -A CLASH -s <LAN_IP> -p <tcp/udp> --sport <LAN_PORT> -j RETURN
-iptables -t mangle -A CLASH -s $LAN_NET ! -d $LAN_NET -j MARK --set-mark $MARK
+config_load firewall
+config_foreach handle_redirect redirect
+LAN_NET=\$(uci get network.lan.ipaddr)/\$(uci get network.lan.netmask)
+iptables -t mangle -A CLASH -s \$LAN_NET ! -d \$LAN_NET -j MARK --set-mark $MARK
 iptables -t mangle -A PREROUTING -j CLASH
 EOF
 
