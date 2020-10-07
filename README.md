@@ -5,4 +5,4 @@
 * [x] 支持路由规则自动配置
 * [ ] DNS自动配置转发到clash
 * [ ] 支持本地(OpenWrt)流量代理
-* [ ] 支持OpenWrt的端口转发
+* [x] 支持OpenWrt的端口转发
